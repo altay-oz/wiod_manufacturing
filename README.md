@@ -3,4 +3,5 @@ R files for the reproducibility of the results obtained in Kim and Ozaygen, Anal
 
 Start with the main.R
 
-These scripts will download WIOD 2016 data from http://www.wiod.org/database/wiots16 You need 2.4 GB on your HD with the downloaded and all new files created.
+These scripts will download WIOD 2016 data from http://www.wiod.org/database/wiots16 
+You need 2.4 GB on your HD with the downloaded and all new files created.
