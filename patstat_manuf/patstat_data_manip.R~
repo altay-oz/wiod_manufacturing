@@ -1,0 +1,92 @@
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(magrittr)
+library(tibble)
+library(countrycode)
+
+
+patstat.raw <- read.csv("./wiod_psql/wiod_pct_yearly_country_industry.csv", skip=2, sep = "|",
+                        strip.white = TRUE, stringsAsFactors = FALSE)
+
+col.names <- c("ctry_code", "nace2_code", "nace2_descr",
+"nace2_weight", "appln_filing_year", "sum_of_country_share")
+
+names(patstat.raw) <- col.names
+
+## obtaining nace dataframe
+nace.df <- patstat.raw %>% select(nace2_code, nace2_descr) %>% unique
+
+nrow(patstat.raw)
+
+patstat.raw %<>% select(-nace2_descr)
+
+patstat.raw$nace2_code <- as.integer(patstat.raw$nace2_code)
+
+patstat.raw$ctry_code[patstat.raw$ctry_code == ""] <- NA
+
+table(patstat.raw$ctry_code)
+
+patstat.raw %<>% group_by(ctry_code, nace2_code, appln_filing_year) %>%
+    summarise(patent_sum = sum(sum_of_country_share))
+
+str(patstat.raw)
+
+p.raw <- patstat.raw[complete.cases(patstat.raw), ]
+
+names(p.raw)
+
+## p.raw %>% filter(ctry_code == "JP", nace2_code == 26) %>% arrange(appln_filing_year)
+## p.raw %>% filter(ctry_code == "JP", nace2_code > 26 & nace2_code < 27) %>% arrange(appln_filing_year)
+
+p.raw
+
+p.raw.manuf <- p.raw %>% filter(nace2_code >= 10 & nace2_code <= 33)
+
+p.raw.manuf %<>% mutate(tech.level = ifelse(nace2_code >= 10 & nace2_code <= 18, "Low Tech",
+                                     ifelse(nace2_code == 19, "Medium-Low Tech",
+                                     ifelse(nace2_code == 20, "Medium-High Tech",
+                                     ifelse(nace2_code == 21, "High Tech",
+                                     ifelse(nace2_code >= 22 & nace2_code <= 25, "Medium-Low Tech",
+                                     ifelse(nace2_code == 26, "High Tech",
+                                     ifelse(nace2_code >= 27 & nace2_code <= 30, "Medium-High Tech",
+                                     ifelse(nace2_code >= 31 & nace2_code <= 33, "Low Tech", NA)))))))))
+
+p.raw.manuf
+
+## this part is the copy paste of the other R file. to use it above
+nace2.code <- c("C10-C12","C13-C15","C16","C17","C18","C19","C20","C21","C22","C23","C24",
+                  "C25","C26","C27","C28","C29","C30","C31_C32","C33")
+tech.type <- c("Low Tech","Low Tech","Low Tech",
+               "Low Tech","Low Tech",
+               "Medium-Low Tech","Medium-High Tech",
+               "High Tech","Medium-Low Tech",
+               "Medium-Low Tech","Medium-Low Tech",
+               "Medium-Low Tech","High Tech",
+               "Medium-High Tech","Medium-High Tech",
+               "Medium-High Tech","Medium-High Tech",
+               "Low Tech","Low Tech")
+tech.df <- data.frame(nace2.code, tech.type)
+tech.df
+
+
+help(countrycode)
+
+p.raw.manuf$country3  <- countrycode(p.raw.manuf$ctry_code, 'iso2c', 'iso3c')
+
+p.raw.manuf %<>% unite(country.ind, country3, tech.level, sep=".") %>% as.data.frame
+
+p.raw.manuf %<>% select(country.ind, appln_filing_year, patent_sum)
+
+write.csv(p.raw.manuf, "country_industry_yearly_patent.csv")
+
+patstat <- read.csv("./wiod_patstat/country_industry_yearly_patent.csv")
+
+
+head(patstat)
+
+patstat %<>% group_by(country.ind, appln_filing_year) %>% summarise(pat_tech_sum = sum(patent_sum))
+
+patstat.df <- as.data.frame(patstat)
+
+write.csv(patstat.df, "./wiod_patstat/country_ind_yearly_pat_tech_sum.csv", row.names=FALSE)
