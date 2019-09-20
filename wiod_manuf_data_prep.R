@@ -142,6 +142,29 @@ create.long.df <- function(yearly.data) {
     return(yearly.long.network.table)
 }
 
+agg.VA.tech  <- function(long.VA) {
+    ## this function aggregate long VA tables into manuf technology
+    ## intensity which contains 1, 2, 3 etc. coming from the previous
+    ## function due to column name.
+
+    ## creating industry and country (3 char) columns.
+    long.VA %<>% mutate(industry = str_sub(country.ind, 5)) %>%
+        mutate(country = str_sub(country.ind, 1, 3))
+
+    ## removing all .1, .2 etc from the industy
+    long.VA$industry <- str_replace_all(long.VA$industry, c("\\.1" = "", "\\.2" = "", "\\.3" = "",
+                                                            "\\.4" = "", "\\.5" = "", "\\.6" = "",
+                                                            "\\.7" = "")) 
+
+    ## aggregating all industries wrt to country, year and industry.
+    ## joining the two columns to country.ind
+    agg.long.VA <- long.VA %>% group_by(Year, industry, country) %>%
+        summarise(VA.total = sum(VA)) %>%
+        unite("country.ind", country, industry) %>% as.data.frame
+
+    return(agg.long.VA)
+}
+
 dom.int.trade <- function(net.long.df) {
     ## inserting a long table of network realtion (source/target/weight)
     ## and obtaining the weight for each node's (country.ind)
@@ -206,7 +229,9 @@ transform.all.files <- function(file.name) {
     yearly.wiod.df <- prepared.data.list[[1]]
     ## the second data.frame is yearly VA values for each country.industry 
     yearly.VA.df <- prepared.data.list[[2]]
-
+    ## summing VAs according to tech intensity 
+    yearly.agg.VA.df <- agg.VA.tech(yearly.VA.df)
+    
     ## calling the function create.long.df to prepare the long tables
     ## for network analysis
     net.long.df <- create.long.df(yearly.wiod.df)
@@ -221,7 +246,7 @@ transform.all.files <- function(file.name) {
 
     ## writing all dataframes
     write.files(net.long.df, file.name.net)
-    write.files(yearly.VA.df, file.name.VA)
+    write.files(yearly.agg.VA.df, file.name.VA)
     write.files(dom.int.weights, file.name.dom.int)
     
     ## just printing where we are.
@@ -250,5 +275,4 @@ wiod.files <- list.files(orginal.data.dir, pattern="*.RData", full.names = TRUE)
 ## call all functions above with this line, creating a final long file
 ## wiod_long_YEAR.csv to perform network analysis.
 lapply(wiod.files, transform.all.files) 
-
 
