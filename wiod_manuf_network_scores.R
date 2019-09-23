@@ -94,9 +94,11 @@ bind_files <- function(year) {
     VA.df <- read.csv(VA.file)
     net.score.df <- read.csv(net.score.file)
     dom.int.trade.df <- read.csv(dom.int.trade.file)
-    
-    yearly.net.score.VA.dom.int.df <- VA.df %>% left_join(net.score.df) %>%
-        left_join(dom.int.trade.df)
+
+    ## from the longest one to the smallest df.  dom.int.trade.df
+    ## comprises final consumption per country, (for example AUS.Z)
+    yearly.net.score.VA.dom.int.df <- dom.int.trade.df %>% left_join(VA.df) %>%
+        left_join(net.score.df)
     
     yearly.net.score.VA.dom.int.dir.file.name <-
         paste0(yearly.net.VA.dom.int.dir, "net_score_VA_dom_int_", year, ".csv")
@@ -126,6 +128,9 @@ patstat.count.df <- read.csv("./patstat_manuf/country_ind_yearly_pat_tech_sum.cs
 ## joining wiod data and the patstat data.
 final.df <- left_join(final.wiod.df, patstat.count.df,
                   by = c("country.ind" = "country.ind", "Year" = "appln_filing_year"))
+
+## changing all NAs in patent info (pat_tech_sum) into zeros.
+final.df$pat_tech_sum[is.na(final.df$pat_tech_sum)]  <- 0
 
 write.csv(final.df, "wiod_manuf_net_VA_patent.csv", row.names = FALSE)
 
