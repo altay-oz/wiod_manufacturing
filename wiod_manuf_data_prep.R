@@ -160,10 +160,11 @@ agg.VA.tech  <- function(long.VA) {
     ## joining the two columns to country.ind
     agg.long.VA <- long.VA %>% group_by(Year, industry, country) %>%
         summarise(VA.total = sum(VA)) %>%
-        unite("country.ind", country, industry) %>% as.data.frame
+        unite("country.ind", country, industry, sep = ".") %>% as.data.frame
 
     return(agg.long.VA)
 }
+
 
 dom.int.trade <- function(net.long.df) {
     ## inserting a long table of network realtion (source/target/weight)
