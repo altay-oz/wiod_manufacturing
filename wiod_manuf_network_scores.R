@@ -81,7 +81,7 @@ wiod.long.files <- list.files(path=long.data.dir, pattern=glob2rx('wiod_long*.cs
                               full.names = TRUE)
 
 ## call all functions and obtain yearly network score files
-sapply(wiod.long.files, create.yearly.net.files, dir.to.write=network.data.dir)
+lapply(wiod.long.files, create.yearly.net.files, dir.to.write=network.data.dir)
 
 bind_files <- function(year) {
     ## bind the network scores, VA values and domestic and internation

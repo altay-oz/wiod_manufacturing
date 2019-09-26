@@ -10,6 +10,10 @@
 ## 44 countries, RoW included
 ## 56 industries, the final consumption data and VA value
 
+## global values
+dir.to.write <<- "./wiod_long_data"
+dir.create(dir.to.write)
+
 data.prep <- function(yearly.raw.data, dir.to.write) {
     ## this function prapares the yearly raw data to be used in the next
     ## function to get a long data. It also creates a yearly VA data.     
@@ -184,6 +188,14 @@ dom.int.trade <- function(net.long.df) {
     net.long.df %<>% mutate(source.country=substr(Source, 1,3)) %>% 
         mutate(target.country=substr(Target, 1,3))
 
+    ## adding two columns source.industry and target.industry
+    net.long.df %<>% mutate(source.industry=substr(Source, 4, 25)) %>% 
+        mutate(target.industry=substr(Target, 4, 25))
+
+    #####################
+    ## domestic and international in and out weight for each
+    ## country.industry (Source)
+    
     ## summing the the weights according to target country domestic
     dom.out <- net.long.df %>% filter(source.country == target.country) %>%
         group_by(Source) %>% summarise(dom.out.weight = sum(Weight)) 
@@ -204,8 +216,23 @@ dom.int.trade <- function(net.long.df) {
         group_by(Target) %>% summarise(int.in.weight = sum(Weight)) 
     names(int.in)[1] <- "country.ind"
     
+    #####################
+    ## domestic and international out weight for final consumption (Z)
+    ## for each country.industry (Source)
+    
+    ## domestic final consumption
+    dom.Z <- net.long.df %>% filter(source.country == target.country, target.industry == "Z") %>%
+        group_by(Source) %>% summarise(dom.Z.weight = sum(Weight))
+    names(dom.Z)[1] <- "country.ind"
+
+    ## international final consumption
+    int.Z <- net.long.df %>% filter(source.country != target.country, target.industry == "Z") %>%
+        group_by(Source) %>% summarise(int.Z.weight = sum(Weight))
+    names(int.Z)[1] <- "country.ind"
+
+    ## merge all
     dom.int.weights <- all.nodes %>% left_join(dom.out) %>% left_join(int.out) %>%
-        left_join(dom.in) %>% left_join(int.in)
+        left_join(dom.in) %>% left_join(int.in) %>% left_join(dom.Z) %>% left_join(int.Z)
 
     return(dom.int.weights)
 }
@@ -276,4 +303,3 @@ wiod.files <- list.files(orginal.data.dir, pattern="*.RData", full.names = TRUE)
 ## call all functions above with this line, creating a final long file
 ## wiod_long_YEAR.csv to perform network analysis.
 lapply(wiod.files, transform.all.files) 
-
