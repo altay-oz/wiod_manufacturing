@@ -189,8 +189,8 @@ dom.int.trade <- function(net.long.df) {
         mutate(target.country=substr(Target, 1,3))
 
     ## adding two columns source.industry and target.industry
-    net.long.df %<>% mutate(source.industry=substr(Source, 4, 25)) %>% 
-        mutate(target.industry=substr(Target, 4, 25))
+    net.long.df %<>% mutate(source.industry=substr(Source, 5, 25)) %>% 
+        mutate(target.industry=substr(Target, 5, 25))
 
     #####################
     ## domestic and international in and out weight for each
@@ -303,3 +303,6 @@ wiod.files <- list.files(orginal.data.dir, pattern="*.RData", full.names = TRUE)
 ## call all functions above with this line, creating a final long file
 ## wiod_long_YEAR.csv to perform network analysis.
 lapply(wiod.files, transform.all.files) 
+
+
+
