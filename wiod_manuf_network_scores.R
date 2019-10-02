@@ -17,28 +17,35 @@ yearly.net.calc <- function(wiod.yearly.long) {
     ## node strength
     strength.all <- strength(g, vids = V(g), mode = c("all"), loops = TRUE)
     strength.all <- rownames_to_column(as.data.frame(strength.all), var = "country.ind")
+    strength.all[is.na(strength.all)] <- 0
     
     strength.out <- strength(g, vids = V(g), mode = c("out"), loops = TRUE)
     strength.out <- rownames_to_column(as.data.frame(strength.out), var = "country.ind")
+    strength.out[is.na(strength.out)] <- 0
     
     strength.in <- strength(g, vids = V(g), mode = c("in"), loops = TRUE)
     strength.in <- rownames_to_column(as.data.frame(strength.in), var = "country.ind")
-
+    strength.in[is.na(strength.in)] <- 0
+    
     ## betweenness
     btw <- betweenness(g, v = V(g), directed = TRUE)
     btw <- rownames_to_column(as.data.frame(btw), var = "country.ind")
-
+    btw[is.na(btw)] <- 0
+    
     ## page.rank
     page.rank <- page_rank(g, damping = 0.999)$vector
     page.rank <- rownames_to_column(as.data.frame(page.rank), var = "country.ind")
-
+    page.rank[is.na(page.rank)] <- 0
+    
     ## eigen centrality
     eigen.cent <- eigen_centrality(g, directed = TRUE)$vector
     eigen.cent <- rownames_to_column(as.data.frame(eigen.cent), var = "country.ind")
-
+    eigen.cent[is.na(eigen.cent)] <- 0
+    
     ## random walk
     random.walk <- random_walk(g, start = 1, steps = 1000000)
     random.walk <- as.data.frame(table(attr(random.walk, "names")))
+    random.walk[is.na(random.walk)] <- 0
     names(random.walk)  <- c("country.ind", "random.walk")
 
     net.scores <- Reduce(function(x, y) merge(x = x, y = y, by = "country.ind",
@@ -87,30 +94,33 @@ bind_files <- function(year) {
     ## bind the network scores, VA values and domestic and internation
     ## trade based on year and country.industry level.
     
-    VA.file <- paste0(long.data.dir, "/VA_long_", year, ".csv")
     net.score.file <- paste0(network.data.dir, "/wiod_network_scores_", year, ".csv")
     dom.int.trade.file <- paste0(long.data.dir, "/dom_int_trade_long_", year, ".csv")
-    
-    VA.df <- read.csv(VA.file)
+    VA.file <- paste0(long.data.dir, "/VA_long_", year, ".csv")
+        
     net.score.df <- read.csv(net.score.file)
     dom.int.trade.df <- read.csv(dom.int.trade.file)
-
+    VA.df <- read.csv(VA.file)
+    
     ## from the longest one to the smallest df.  dom.int.trade.df
     ## comprises final consumption per country, (for example AUS.Z)
-    yearly.net.score.VA.dom.int.df <- dom.int.trade.df %>% left_join(VA.df) %>%
-        left_join(net.score.df)
-    
-    yearly.net.score.VA.dom.int.dir.file.name <-
-        paste0(yearly.net.VA.dom.int.dir, "net_score_VA_dom_int_", year, ".csv")
+    yearly.net.score.dom.int.VA.df <- net.score.df %>% left_join(dom.int.trade.df) %>%
+        left_join(VA.df)
 
-    write.csv(yearly.net.score.VA.dom.int.df,
-              yearly.net.score.VA.dom.int.dir.file.name, row.names = FALSE)
+    ## yearly.net.score.dom.int.VA.df$year <- year
+    
+    yearly.net.score.dom.int.VA.df  <- add_column(yearly.net.score.dom.int.VA.df,
+                                                  year = year, .after = "country.ind")
+    
+    file.name <- paste0(yearly.net.dom.int.VA.dir, "net_score_dom_int_VA_", year, ".csv")
+
+    write.csv(yearly.net.score.dom.int.VA.df, file.name, row.names = FALSE)
 }
 
 ## creating the directory where all yearly binded network score and VA
 ## value files are stored
-yearly.net.VA.dom.int.dir <<- "./yearly_net_VA_dom_int/"
-dir.create(yearly.net.VA.dom.int.dir)
+yearly.net.dom.int.VA.dir <<- "./yearly_net_dom_int_VA/"
+dir.create(yearly.net.dom.int.VA.dir)
 
 ## creating all yearly binded network score and VA value files and
 ## stored at yearly.net.VA.dir
@@ -119,7 +129,7 @@ lapply(seq(2000,2014), bind_files)
 ## obtaining the last file to use in econometric study.
 ## rbinding all yearly network score VA value files
 final.wiod.df <- do.call(rbind,
-                         lapply(list.files(path = yearly.net.VA.dom.int.dir, full.names = TRUE),
+                         lapply(list.files(path = yearly.net.dom.int.VA.dir, full.names = TRUE),
                                 read.csv))
 
 ## reading the patent count data obtained from patstat
@@ -127,13 +137,11 @@ patstat.count.df <- read.csv("./patstat_manuf/country_ind_yearly_pat_tech_sum.cs
 
 ## joining wiod data and the patstat data.
 final.df <- left_join(final.wiod.df, patstat.count.df,
-                  by = c("country.ind" = "country.ind", "Year" = "appln_filing_year"))
+                  by = c("country.ind" = "country.ind", "year" = "appln_filing_year"))
 
 ## changing all NAs in patent info (pat_tech_sum) into zeros.
 final.df$pat_tech_sum[is.na(final.df$pat_tech_sum)]  <- 0
 
 write.csv(final.df, "wiod_manuf_net_VA_patent.csv", row.names = FALSE)
-
-nrow(final.df)
 
 ## END of data preparation. Continue with data analysis.

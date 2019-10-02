@@ -24,11 +24,12 @@ wiod.manuf.data  <- wiod.data %>% filter(industry %in% c("Low Tech",
 wiod.manuf.data$industry <- factor(wiod.manuf.data$industry)
 
 ## renaming all variabes in capital letters.
-names(wiod.manuf.data) <- c("country.ind", "DOM.OUT", "INT.OUT",
-                            "DOM.IN", "INT.IN", "year", "VA",
-                            "STRENGTH.ALL", "STRENGTH.OUT",
-                            "STRENGTH.IN", "BETWEENNESS", "PAGE.RANK",
-                            "EIGEN.CENT", "RANDOM.WALK", "INNOV.CAP",
+names(wiod.manuf.data) <- c("country.ind", "year", "STRENGTH.ALL",
+                            "STRENGTH.OUT", "STRENGTH.IN",
+                            "BETWEENNESS", "PAGE.RANK", "EIGEN.CENT",
+                            "RANDOM.WALK", "DOM.OUT", "INT.OUT",
+                            "DOM.IN", "INT.IN", "DOM.FINAL", "INT.FINAL", "VA",
+                            "INNOV.CAP",
                             "country", "industry")
 
 ## adding STRENGTH.EFFiciency variable
@@ -66,7 +67,6 @@ corr.matrix
 stargazer(corr.matrix, summary=FALSE, type = "latex", out = "./tables/corr_matrix.tex",
           title = "Pearson correlation matrix.", label = "table:corr_matrix",
           font.size = "footnotesize", out.header = FALSE)
-
 
 ############ ############ ############ ############ ############ ############ 
 ## panel model analysis

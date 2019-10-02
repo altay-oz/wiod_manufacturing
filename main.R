@@ -6,7 +6,6 @@
 library(dplyr)
 library(magrittr)
 library(tidyr)
-library(reshape2)
 library(stringr)
 library(tibble)
 library(igraph)

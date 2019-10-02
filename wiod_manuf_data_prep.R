@@ -10,26 +10,17 @@
 ## 44 countries, RoW included
 ## 56 industries, the final consumption data and VA value
 
-## global values
-dir.to.write <<- "./wiod_long_data"
-dir.create(dir.to.write)
+ind.RNr <- function(yearly.raw.data) {
 
-data.prep <- function(yearly.raw.data, dir.to.write) {
-    ## this function prapares the yearly raw data to be used in the next
-    ## function to get a long data. It also creates a yearly VA data.     
-    
-    ## obtaining the year information to be used in files naming
-    year <- yearly.raw.data$YEAR
-    
-    ## get the industry and RNr code to use in renaming columns. colname = XXX.indshort.number
+    ## get the industry and RNr code 
     industry.RNr <- yearly.raw.data %>% select(RNr, IndustryCode) %>% unique
 
     ## adding 57 to 61 the code Z. this is done to group them later
     ## 57 to 61 are final consumption
     ## we are using/keeping it for network score calculations.
     RNr <- c(57:61)
-    IndustryCode <- c("Z.1", "Z.2", "Z.3", "Z.4", "Z.5")
-    df <- data.frame(RNr, IndustryCode)
+    IndustryCode <- "Z"
+    df <- data.frame(RNr, IndustryCode, stringsAsFactors = FALSE)
 
     industry.RNr <- rbind(industry.RNr, df)
 
@@ -38,15 +29,15 @@ data.prep <- function(yearly.raw.data, dir.to.write) {
     ## their technology intensity.
     IndustryCode <- c("C10-C12","C13-C15","C16","C17","C18","C19","C20","C21","C22","C23","C24",
                 "C25","C26","C27","C28","C29","C30","C31_C32","C33")
-    tech.type <- c("Low Tech.1","Low Tech.2","Low Tech.3",
-                "Low Tech.4","Low Tech.5",
-                "Medium-Low Tech.1","Medium-High Tech.1",
-                "High Tech.1","Medium-Low Tech.2",
-                "Medium-Low Tech.3","Medium-Low Tech.4",
-                "Medium-Low Tech.5","High Tech.2",
-                "Medium-High Tech.2","Medium-High Tech.3",
-                "Medium-High Tech.4","Medium-High Tech.5",
-                "Low Tech.6","Low Tech.7")
+    tech.type <- c("Low Tech","Low Tech","Low Tech",
+                "Low Tech","Low Tech",
+                "Medium-Low Tech","Medium-High Tech",
+                "High Tech","Medium-Low Tech",
+                "Medium-Low Tech","Medium-Low Tech",
+                "Medium-Low Tech","High Tech",
+                "Medium-High Tech","Medium-High Tech",
+                "Medium-High Tech","Medium-High Tech",
+                "Low Tech","Low Tech")
     man.table <- data.frame(IndustryCode, tech.type, stringsAsFactors = FALSE)
 
     industry.RNr  <- left_join(industry.RNr, man.table, by = "IndustryCode")
@@ -56,125 +47,103 @@ data.prep <- function(yearly.raw.data, dir.to.write) {
 
     names(industry.RNr) <- c("RNr", "NewIndustryCode")
 
+    return(industry.RNr)
+}
+
+data.prep.raw <- function(yearly.raw) {
+
+    industry.RNr <- ind.RNr(yearly.raw)
+    
     ## changing the IndustryCode column wihtin the main df
-    yearly.raw.data %<>% left_join(industry.RNr, yearly.raw.data, by = c("RNr"))
-
-    yearly.raw.data %<>% mutate(IndustryCode = NewIndustryCode) %>% select(-NewIndustryCode)
-
-    ## change the col.names for the intermediate production AUS24 -> AUS.C.24
-    ## change the col.names for the final production AUS57 -> AUS.Z.1 : AUS61 -> AUS.Z.5
-    colname.df <- as.data.frame(names(yearly.raw.data))
-    names(colname.df) <- "colnames"
-
-    colname.df <- transform(colname.df, country=substr(colnames, 1, 3),
-                            ind.code=substr(colnames, 4, 5))
-
-    ## emptying cells which are not relevant to any contry such as
-    ## IndustryCode, IndustryDesctiption etc.
-    colname.df[2690, 2:3 ] <- NA
-    colname.df[1:5,2:3 ] <- NA
-
-    colname.df$ind.code <- as.numeric(as.character(colname.df$ind.code))
-
-    names(industry.RNr) <- c("RNr", "IndustryCode")
+    yearly.raw %<>% left_join(industry.RNr, yearly.raw, by = c("RNr"))
     
-    new.col.name <- left_join(colname.df, industry.RNr, by = c("ind.code" = "RNr")) %>%
-        unite(new.col.name, country, IndustryCode, sep=".") %>% select(new.col.name) %>% as.list
+    ## cleaning the data frame
+    yearly.raw %<>% mutate(IndustryCode = NewIndustryCode)
 
-    names(yearly.raw.data)[6:2689] <- new.col.name$new.col.name[6:2689]
-
-    ## obtaining VA of all industries.
-    ## selecting year and all industries, Z columns are all 0, getting rid of them
-    ## This file will contain columns such as "Medium-High Tech.3","Medium-High Tech.4",
-    ## they should be aggregated
-    yearly.VA.row <- yearly.raw.data %>% filter(IndustryCode == "VA") %>% select(5:2469)
-    yearly.VA.df <- gather(yearly.VA.row, country.ind, VA, AUS.A01:ROW.U, factor_key=TRUE)
-    
-    ## remove TOT row.
-    ## remove the last section, all rows without any sectoral information
-    yearly.raw.data %<>% filter(Country!="TOT") %>% filter(RNr <= 56)
-    
-    yearly.raw.data <- unite(yearly.raw.data, "country.ind", c("Country", "IndustryCode"),
-                               sep = ".", remove = TRUE)
-
-    yearly.raw.data %<>% select(-c("IndustryDescription", "RNr", "Year"))
-    
-    return(list(yearly.raw.data, yearly.VA.df))
+    return(yearly.raw)
 }
 
-create.long.df <- function(yearly.data) {
-    ## function which aggregates all types of final consumption into Z.
-    ## and cretes long table (Source - Target - Weight) to be used in network analysis.
+divide.long.IO <- function(yearly.raw) {
 
-    yearly.melted.data <- yearly.data %>% melt(id.vars = "country.ind")
+    ## creating yearly complementary data to be used to get VA etc.
+    yearly.complementary <- yearly.raw %>% filter(RNr > 64)
+    ## obtaining
+    ##   IndustryCode                                   IndustryDescription Country
+    ## 1       II_fob                        Total intermediate consumption     TOT
+    ## 2         TXSP                      taxes less subsidies on products     TOT
+    ## 3      EXP_adj                       Cif/ fob adjustments on exports     TOT
+    ## 4         PURR                  Direct purchases abroad by residents     TOT
+    ## 5        PURNR Purchases on the domestic territory by non-residents      TOT
+    ## 6           VA                           Value added at basic prices     TOT
 
-    ## variable is the new column made of column name of the Target, and
-    ## obtaining Z and melted data
-    yearly.melted.data.z <- yearly.melted.data %>%
-        separate(variable, c("target.country", "target.ind", "target.z.cat"), sep = "\\.",
-                 fill = "right") %>%
-        filter(target.ind == "Z") %>% 
-        separate(country.ind, c("source.country", "source.ind", "source.tech.cat"), sep = "\\.",
-                 fill = "right") %>% select(-c("source.tech.cat","target.z.cat")) 
+    ## cleaning the data frame, removing unwanted columns in the long file
+    yearly.long.IO <- yearly.raw %>% filter(RNr < 64)
 
-    yearly.z <- yearly.melted.data.z %>%
-        group_by(source.country, source.ind, target.country, target.ind) %>%
-        summarise(Weight = sum(value)) %>% as.data.frame
-
-    yearly.z %<>% unite(Source, c("source.country", "source.ind"), sep = ".") %>%
-        unite(Target, c("target.country", "target.ind"), sep = ".")
-
-    ## aggregating according the Low Tech etc in target and source
-    ## dividing the Target column into country|ind|z.cat and making their sum
-    yearly.melted.wo.z <- yearly.melted.data %>%
-        separate(variable, c("country", "ind", "z.cat"), sep = "\\.", fill = "right") %>%
-        filter(! ind == "Z") %>% select(-c("z.cat")) 
-
-    yearly.melted.wo.z.1 <- yearly.melted.wo.z %>% group_by(country.ind, country, ind) %>%
-        summarise(tot.1.value = sum(value)) %>%
-        unite(Target, c("country", "ind"), sep = ".") %>% as.data.frame
-    
-    yearly.melted.wo.z.2 <- yearly.melted.wo.z.1 %>%
-        separate(country.ind, c("country", "ind", "z.cat"), sep = "\\.", fill = "right") %>%
-        select(-c("z.cat")) %>% 
-        group_by(country, ind, Target) %>%
-        summarise(Weight = sum(tot.1.value)) %>%
-        unite(Source, c("country", "ind"), sep = ".") %>% as.data.frame
-
-    yearly.long.network.table <- rbind(yearly.melted.wo.z.2, yearly.z)
-
-    return(yearly.long.network.table)
+    return(list(yearly.long.IO, yearly.complementary))
 }
 
-agg.VA.tech  <- function(long.VA) {
-    ## this function aggregate long VA tables into manuf technology
-    ## intensity which contains 1, 2, 3 etc. coming from the previous
-    ## function due to column name.
+get.net.long <- function(yearly.IO) {
 
-    ## creating industry and country (3 char) columns.
-    long.VA %<>% mutate(industry = str_sub(country.ind, 5)) %>%
-        mutate(country = str_sub(country.ind, 1, 3))
+    yearly.IO %<>% select(-c("Year", "IndustryDescription", "NewIndustryCode", "RNr", "TOT"))
 
-    ## removing all .1, .2 etc from the industy
-    long.VA$industry <- str_replace_all(long.VA$industry, c("\\.1" = "", "\\.2" = "", "\\.3" = "",
-                                                            "\\.4" = "", "\\.5" = "", "\\.6" = "",
-                                                            "\\.7" = "")) 
+    ## joining Country and IndustryCode columns to create Source (country.ind)
+    yearly.IO %<>% unite("Source", "Country", "IndustryCode", sep = ".") 
 
-    ## aggregating all industries wrt to country, year and industry.
-    ## joining the two columns to country.ind
-    agg.long.VA <- long.VA %>% group_by(Year, industry, country) %>%
-        summarise(VA.total = sum(VA)) %>%
-        unite("country.ind", country, industry, sep = ".") %>% as.data.frame
+    ## creating the long table
+    yearly.IO <- gather(yearly.IO, target.country.ind,
+                        raw.weight, AUS1:ROW61, factor_key = FALSE)
 
-    return(agg.long.VA)
+    ## ## giving the industry code to the target.country.ind column
+    yearly.IO %<>% separate(target.country.ind, c("target.country", "target.ind"), 3)
+
+    yearly.IO$target.ind <- as.numeric(yearly.IO$target.ind)
+
+    yearly.IO <- left_join(yearly.IO, industry.RNr, by=c("target.ind" = "RNr")) 
+
+    yearly.IO %<>% select(-target.ind)
+
+    yearly.IO %<>% unite("Target", "target.country", "NewIndustryCode", sep = ".")
+
+    ## ## aggregating according the Low Tech etc in target and source
+    ## ## dividing the Target column into country|ind|z.cat and making their sum
+    yearly.IO %<>% group_by(Source, Target) %>% summarise(Weight = sum(raw.weight)) %>% as.data.frame
+
+    return(yearly.IO)
 }
 
+get.complementary  <- function(yearly.complementary, value) {
+
+    yearly.select <- yearly.complementary %>% filter(IndustryCode == value) %>% select(AUS1:ROW61)
+    yearly.select.long <- gather(yearly.select, countryind, factor_key = FALSE)
+
+    ## repetition function which takes columnname, value to be summed and name
+    yearly.select.long %<>% separate(countryind, c("country", "ind"), 3)
+
+    yearly.select.long$ind <- as.numeric(yearly.select.long$ind)
+
+    yearly.select.long <- left_join(yearly.select.long, industry.RNr, by=c("ind" = "RNr")) 
+
+    head(yearly.select.long)
+
+    yearly.select.long %<>% select(-ind)
+
+    yearly.select.long %<>% unite("country.ind", "country", "NewIndustryCode", sep = ".")
+
+    ## change the VA to the variable "value" as column name.
+    yearly.select.long %<>% group_by(country.ind) %>% summarise(sum = sum(value))
+
+    names(yearly.select.long) <- c("country.ind", value)
+
+    return(yearly.select.long)    
+}
 
 dom.int.trade <- function(net.long.df) {
     ## inserting a long table of network realtion (source/target/weight)
     ## and obtaining the weight for each node's (country.ind)
     ## international and domestic trade.
 
+    head(net.long.df)
+    
     ## obtaining all nodes for making a left join at the end
     source <- net.long.df %>% select(Source) %>% unique
     target <- net.long.df %>% select(Target) %>% unique
@@ -237,6 +206,7 @@ dom.int.trade <- function(net.long.df) {
     return(dom.int.weights)
 }
 
+
 write.files <- function(df, file.name) {
     dir.file <- paste(dir.to.write, file.name, sep="/")
     write.csv(df, dir.file, row.names = FALSE)
@@ -246,26 +216,52 @@ transform.all.files <- function(file.name) {
     ## insert a RDATA WIOT file and obtain a long data
     ## this function uses the above functions
 
+    ##file.name <- wiod.files[2]
+
+    year <- substr(file.name, 25, 28)
+    
     yearly.raw.data <- get(load(file.name))
     
-    year <- substr(file.name, 25, 28)
+    ## creating the data.frame necessary to change all column names
+    ## according to the industry.NACEcode such as AUS1 to AUS.A01
+    industry.RNr <<- ind.RNr(yearly.raw.data)
 
-    ## obtaining a list of two data.frame from the data.prep function
-    prepared.data.list <- data.prep(yearly.raw.data)
+    ## using the raw file to change it according to industry.RNr
+    yearly.raw <- data.prep.raw(yearly.raw.data)
 
-    ## the first data.frame will be used obtaining long.df for network analysis
-    yearly.wiod.df <- prepared.data.list[[1]]
-    ## the second data.frame is yearly VA values for each country.industry 
-    yearly.VA.df <- prepared.data.list[[2]]
-    ## summing VAs according to tech intensity 
-    yearly.agg.VA.df <- agg.VA.tech(yearly.VA.df)
+    ## obtaining the wide df for network transformation and other data
+    two.df <- divide.long.IO(yearly.raw)
+
+    ## the wide df to be used to obtain network long df
+    yearly.IO <- two.df[[1]]
+    ## getting the long df
+    net.long.df <- get.net.long(yearly.IO)
     
-    ## calling the function create.long.df to prepare the long tables
-    ## for network analysis
-    net.long.df <- create.long.df(yearly.wiod.df)
+    ## other info grabbed from the raw data
+    yearly.complementary <- two.df[[2]]
+    
+    ## IndustryCode                                   IndustryDescription Country
+    ##     II_fob                        Total intermediate consumption     TOT
+    ##       TXSP                      taxes less subsidies on products     TOT
+    ##    EXP_adj                       Cif/ fob adjustments on exports     TOT
+    ##       PURR                  Direct purchases abroad by residents     TOT
+    ##      PURNR Purchases on the domestic territory by non-residents      TOT
+    ##         VA                           Value added at basic prices     TOT
 
-    ## domestic and internation trade for each country.industry
-    dom.int.weights <- dom.int.trade(net.long.df)
+    ## getting only the VA
+    VA.df <- get.complementary(yearly.complementary, "VA")
+
+    ## and the other info | uncomment them if needed and don't forget to
+    ## bind them
+    ## II_fob.df <- get.complementary(yearly.complementary, "II_fob")
+    ## TXSP.df <- get.complementary(yearly.complementary, "TXSP")
+    ## EXP_adj.df <- get.complementary(yearly.complementary, "EXP_adj")
+    ## PURR.df <- get.complementary(yearly.complementary, "PURR")
+    ## PURNR.df <- get.complementary(yearly.complementary, "PURNR")
+
+    ## obtaining domestic and international trade in and out weight
+    ## values for each country.industry
+    dom.int.weights.df <- dom.int.trade(net.long.df)
     
     ## create file names
     file.name.net <- paste0(paste("wiod_long", year, sep = "_"), ".csv")
@@ -274,8 +270,8 @@ transform.all.files <- function(file.name) {
 
     ## writing all dataframes
     write.files(net.long.df, file.name.net)
-    write.files(yearly.agg.VA.df, file.name.VA)
-    write.files(dom.int.weights, file.name.dom.int)
+    write.files(VA.df, file.name.VA)
+    write.files(dom.int.weights.df, file.name.dom.int)
     
     ## just printing where we are.
     print(paste("Year finished:", year), row.names = FALSE)
@@ -302,7 +298,5 @@ wiod.files <- list.files(orginal.data.dir, pattern="*.RData", full.names = TRUE)
 
 ## call all functions above with this line, creating a final long file
 ## wiod_long_YEAR.csv to perform network analysis.
-lapply(wiod.files, transform.all.files) 
-
-
+lapply(wiod.files, transform.all.files)
 
