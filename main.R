@@ -24,6 +24,7 @@ library(lmtest)
 ## this file download WIOD data from the web and changed into a long
 ## file, chdir allows to get the path, from Hadley
 ## https://stackoverflow.com/questions/3452086/getting-path-of-an-r-script?answertab=active#tab-top
+
 source("./wiod_manuf_data_prep.R", chdir = T)
 
 ## the long file is used on year basis for the calculation of network

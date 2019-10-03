@@ -23,13 +23,14 @@ wiod.manuf.data  <- wiod.data %>% filter(industry %in% c("Low Tech",
 ## creating a dummy variable
 wiod.manuf.data$industry <- factor(wiod.manuf.data$industry)
 
+names(wiod.manuf.data)
+
 ## renaming all variabes in capital letters.
 names(wiod.manuf.data) <- c("country.ind", "year", "STRENGTH.ALL",
                             "STRENGTH.OUT", "STRENGTH.IN",
                             "BETWEENNESS", "PAGE.RANK", "EIGEN.CENT",
-                            "RANDOM.WALK", "DOM.OUT", "INT.OUT",
-                            "DOM.IN", "INT.IN", "DOM.FINAL", "INT.FINAL", "VA",
-                            "INNOV.CAP",
+                            "DOM.OUT", "INT.OUT", "DOM.IN", "INT.IN",
+                            "DOM.FINAL", "INT.FINAL", "VA", "INNOV.CAP",
                             "country", "industry")
 
 ## adding STRENGTH.EFFiciency variable
@@ -40,8 +41,8 @@ omitted.fields <- c("year", "country.ind", "country", "industry")
 
 ## change the TWO lines bellow for any removal of variables from the lists
 ##omitted.net.var <- NULL
-omitted.net.var <- c("RANDOM.WALK", "PAGE.RANK", "STRENGTH.ALL",
-                     "STRENGTH.OUT", "STRENGTH.IN")
+omitted.net.var <- c("PAGE.RANK", "STRENGTH.ALL", "STRENGTH.OUT",
+                     "STRENGTH.IN")
 
 omitted.fields <- list(omitted.fields,  omitted.net.var)
 omitted.fields <- unlist(omitted.fields)
