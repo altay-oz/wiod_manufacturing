@@ -5,7 +5,6 @@
 
 yearly.net.calc <- function(wiod.yearly.long) {
     ## making yearly network calculations
-    
     yearly.wiod <- wiod.yearly.long %>% filter(Weight > 0)
 
     wiod.nodes.t <- yearly.wiod %>% select(Target) %>% unique %>% transmute(country.ind=Target)
@@ -42,17 +41,11 @@ yearly.net.calc <- function(wiod.yearly.long) {
     eigen.cent <- rownames_to_column(as.data.frame(eigen.cent), var = "country.ind")
     eigen.cent[is.na(eigen.cent)] <- 0
     
-    ## random walk
-    random.walk <- random_walk(g, start = 1, steps = 1000000)
-    random.walk <- as.data.frame(table(attr(random.walk, "names")))
-    random.walk[is.na(random.walk)] <- 0
-    names(random.walk)  <- c("country.ind", "random.walk")
-
     net.scores <- Reduce(function(x, y) merge(x = x, y = y, by = "country.ind",
-                                             all.x = TRUE),
-                        list(wiod.nodes, strength.all,
-                             strength.out, strength.in, btw,
-                             page.rank, eigen.cent, random.walk))
+                                              all.x = TRUE),
+                         list(wiod.nodes, strength.all,
+                              strength.out, strength.in, btw,
+                              page.rank, eigen.cent))
     
     return(net.scores)
 }
@@ -133,7 +126,8 @@ final.wiod.df <- do.call(rbind,
                                 read.csv))
 
 ## reading the patent count data obtained from patstat
-patstat.count.df <- read.csv("./patstat_manuf/country_ind_yearly_pat_tech_sum.csv")
+patstat.count.df <- read.csv("./patstat_manuf/country_ind_yearly_pat_tech_sum.csv",
+                             stringsAsFactors = FALSE)
 
 ## joining wiod data and the patstat data.
 final.df <- left_join(final.wiod.df, patstat.count.df,
