@@ -5,7 +5,7 @@
 
 yearly.net.calc <- function(wiod.yearly.long) {
     ## making yearly network calculations
-    yearly.wiod <- wiod.yearly.long %>% filter(weight > 0)
+    yearly.wiod <- wiod.yearly.long %>% filter(weight > 0.05)
 
     wiod.nodes.t <- yearly.wiod %>% select(target) %>% unique %>% transmute(country.ind=target)
     wiod.nodes.f <- yearly.wiod %>% select(source) %>% unique %>% transmute(country.ind=source)
@@ -82,6 +82,8 @@ wiod.long.files <- list.files(path=long.data.dir, pattern=glob2rx('wiod_long*.cs
 
 ## call all functions and obtain yearly network score files
 lapply(wiod.long.files, create.yearly.net.files, dir.to.write=network.data.dir)
+
+
 
 bind_files <- function(year) {
     ## bind the network scores, VA values and domestic and internation
