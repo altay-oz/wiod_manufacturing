@@ -5,10 +5,10 @@
 
 yearly.net.calc <- function(wiod.yearly.long) {
     ## making yearly network calculations
-    yearly.wiod <- wiod.yearly.long %>% filter(Weight > 0)
+    yearly.wiod <- wiod.yearly.long %>% filter(weight > 0)
 
-    wiod.nodes.t <- yearly.wiod %>% select(Target) %>% unique %>% transmute(country.ind=Target)
-    wiod.nodes.f <- yearly.wiod %>% select(Source) %>% unique %>% transmute(country.ind=Source)
+    wiod.nodes.t <- yearly.wiod %>% select(target) %>% unique %>% transmute(country.ind=target)
+    wiod.nodes.f <- yearly.wiod %>% select(source) %>% unique %>% transmute(country.ind=source)
     wiod.nodes <- rbind(wiod.nodes.t, wiod.nodes.f) %>% unique
 
     g <- graph.data.frame(yearly.wiod, directed = TRUE, vertices=wiod.nodes)

@@ -86,27 +86,30 @@ get.net.long <- function(yearly.IO) {
 
     yearly.IO %<>% select(-c("Year", "IndustryDescription", "NewIndustryCode", "RNr", "TOT"))
 
-    ## joining Country and IndustryCode columns to create Source (country.ind)
-    yearly.IO %<>% unite("Source", "Country", "IndustryCode", sep = ".") 
+    ## joining Country and IndustryCode columns to create source (country.ind)
+    yearly.IO %<>% unite("source", "Country", "IndustryCode", sep = ".") 
 
     ## creating the long table
     yearly.IO <- gather(yearly.IO, target.country.ind,
                         raw.weight, AUS1:ROW61, factor_key = FALSE)
 
-    ## ## giving the industry code to the target.country.ind column
+    ## giving the industry code to the target.country.ind column
     yearly.IO %<>% separate(target.country.ind, c("target.country", "target.ind"), 3)
 
     yearly.IO$target.ind <- as.numeric(yearly.IO$target.ind)
-
+    
     yearly.IO <- left_join(yearly.IO, industry.RNr, by=c("target.ind" = "RNr")) 
 
     yearly.IO %<>% select(-target.ind)
 
-    yearly.IO %<>% unite("Target", "target.country", "NewIndustryCode", sep = ".")
+    ## removing the final consumption
+    yearly.IO %<>% filter("NewIndustryCode" != "Z")
+    
+    yearly.IO %<>% unite("target", "target.country", "NewIndustryCode", sep = ".")
 
     ## ## aggregating according the Low Tech etc in target and source
-    ## ## dividing the Target column into country|ind|z.cat and making their sum
-    yearly.IO %<>% group_by(Source, Target) %>% summarise(Weight = sum(raw.weight)) %>% as.data.frame
+    ## ## dividing the target column into country|ind|z.cat and making their sum
+    yearly.IO %<>% group_by(source, target) %>% summarise(weight = sum(raw.weight)) %>% as.data.frame
 
     return(yearly.IO)
 }
@@ -145,8 +148,8 @@ dom.int.trade <- function(net.long.df) {
     head(net.long.df)
     
     ## obtaining all nodes for making a left join at the end
-    source <- net.long.df %>% select(Source) %>% unique
-    target <- net.long.df %>% select(Target) %>% unique
+    source <- net.long.df %>% select(source) %>% unique
+    target <- net.long.df %>% select(target) %>% unique
 
     names(source) <- "country.ind"
     names(target) <- "country.ind"
@@ -154,49 +157,49 @@ dom.int.trade <- function(net.long.df) {
     all.nodes <- rbind(source, target) %>% unique
     
     ## adding two columns source.country and target.country
-    net.long.df %<>% mutate(source.country=substr(Source, 1,3)) %>% 
-        mutate(target.country=substr(Target, 1,3))
+    net.long.df %<>% mutate(source.country=substr(source, 1,3)) %>% 
+        mutate(target.country=substr(target, 1,3))
 
     ## adding two columns source.industry and target.industry
-    net.long.df %<>% mutate(source.industry=substr(Source, 5, 25)) %>% 
-        mutate(target.industry=substr(Target, 5, 25))
+    net.long.df %<>% mutate(source.industry=substr(source, 5, 25)) %>% 
+        mutate(target.industry=substr(target, 5, 25))
 
     #####################
     ## domestic and international in and out weight for each
-    ## country.industry (Source)
+    ## country.industry (source)
     
     ## summing the the weights according to target country domestic
     dom.out <- net.long.df %>% filter(source.country == target.country) %>%
-        group_by(Source) %>% summarise(dom.out.weight = sum(Weight)) 
+        group_by(source) %>% summarise(dom.out.weight = sum(weight)) 
     names(dom.out)[1] <- "country.ind"
     
     ## summing the the weights according to target country international
     int.out <- net.long.df %>% filter(source.country != target.country) %>%
-        group_by(Source) %>% summarise(int.out.weight = sum(Weight)) 
+        group_by(source) %>% summarise(int.out.weight = sum(weight)) 
     names(int.out)[1] <- "country.ind"
     
     ## summing the the weights according to target country domestic
     dom.in <- net.long.df %>% filter(source.country == target.country) %>%
-        group_by(Target) %>% summarise(dom.in.weight = sum(Weight)) 
+        group_by(target) %>% summarise(dom.in.weight = sum(weight)) 
     names(dom.in)[1] <- "country.ind"
     
     ## summing the the weights according to target country international
     int.in <- net.long.df %>% filter(source.country != target.country) %>%
-        group_by(Target) %>% summarise(int.in.weight = sum(Weight)) 
+        group_by(target) %>% summarise(int.in.weight = sum(weight)) 
     names(int.in)[1] <- "country.ind"
     
     #####################
     ## domestic and international out weight for final consumption (Z)
-    ## for each country.industry (Source)
+    ## for each country.industry (source)
     
     ## domestic final consumption
     dom.Z <- net.long.df %>% filter(source.country == target.country, target.industry == "Z") %>%
-        group_by(Source) %>% summarise(dom.Z.weight = sum(Weight))
+        group_by(source) %>% summarise(dom.Z.weight = sum(weight))
     names(dom.Z)[1] <- "country.ind"
 
     ## international final consumption
     int.Z <- net.long.df %>% filter(source.country != target.country, target.industry == "Z") %>%
-        group_by(Source) %>% summarise(int.Z.weight = sum(Weight))
+        group_by(source) %>% summarise(int.Z.weight = sum(weight))
     names(int.Z)[1] <- "country.ind"
 
     ## merge all
