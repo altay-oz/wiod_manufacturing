@@ -51,7 +51,10 @@ select count(*) from wiot_pct_t906; -- 475.330
 \d wiod_pct_t227
 \d wiod_pct_t906
 
--- now, joining all w221, w227, w906 to obtain appln_id, inventor_num-country, country, year
+-- now, joining all wiod_pct_t221, wiod_pct_t227, wiod_pct_t906 to
+-- obtain appln_id, inventor_num-country, country, year. Here we are
+-- obtaining for each published PCT patent the number, the number of
+-- inventor for each different country of inventors.
 drop table wiod_pct_inv_num_country;
 select w211.appln_id, count(w906.person_id) as inventor_num_per_country,
 w906.person_ctry_code, w211.appln_filing_year
@@ -65,7 +68,11 @@ select count(*) from wiod_pct_inv_num_country; -- 189.633
 
 select * from wiod_pct_inv_num_country order by appln_id limit 20;
 
--- adding two more columns; total_num_inventors_per_country; share_of_country
+-- adding two more columns; total_num_inventors_per_country;
+-- share_of_country in this sql we are creating a new table giving the
+-- total number of inventors for each published PCT patents obtained in
+-- the above sql. This sql is adding a new column to the above table and
+-- write down all into a new table.
 drop table wiod_pct_inv_num_country_2;
 select appln_id, appln_filing_year, inventor_num_per_country, person_ctry_code,
 sum(inventor_num_per_country) as total_inventor
@@ -75,7 +82,11 @@ group by appln_id, appln_filing_year, inventor_num_per_country, person_ctry_code
 
 select count(*) from wiod_pct_inv_num_country_2; -- 189.633
 
---create the last table on pct inventors with share of the country
+-- create the last table on pct inventors with share of the
+-- country. This sql give us the new column on the share of inventors
+-- for each published PCT patents for each country of inventors. This
+-- last sql is adding a new column to the above table and create a new
+-- table.
 drop table wiod_pct_inventor_country;
 select *, inventor_num_per_country/total_inventor as country_share
 into wiod_pct_inventor_country
@@ -93,8 +104,8 @@ select sum(country_share) from wiod_pct_inventor_country; -- 189.633
 
 select * from wiod_pct_inventor_country limit 20;
 
---- obtain the the number of PCT patents filled by countries-inventors in different IPC
--- ipc is 4 char; then choosse in tls209_appln_ipc.ipc_class_level = 'S'
+-- adding the IPC code for each published PCT patents obtained with the
+-- above sql.
 drop table wiod_pct_inventor_country_t209;
 select wic.*, t209.ipc_class_symbol
 into wiod_pct_inventor_country_t209
@@ -103,8 +114,9 @@ where t209.appln_id = wic.appln_id;
 
 \d wiod_pct_inventor_country_t209
 
--- obtaining the first 4 ipc char from the ipc_class_symbol and
--- distinct as the patent can be classified in different sub fields
+-- cropping the IPC code into 4 char obtained in the last sql.
+-- selecting the necessary columns and making it distinct because by
+-- cropping the IPC code into 4 we may have duplicates.
 drop table wiod_pct_inventor_country_per_4ipc;
 select distinct appln_id, appln_filing_year, inventor_num_per_country, person_ctry_code,
 total_inventor, country_share, substring(ipc_class_symbol, 1, 4) as ipc4
@@ -113,7 +125,7 @@ from wiod_pct_inventor_country_t209; -- 292.736
 
 \d wiod_pct_inventor_country_per_4ipc
 
--- adding nace2 code
+-- adding nace2 code to each patents and creating a new table.
 drop table wiod_pct_inventor_country_per_nace2;
 select distinct wipc.appln_id, wipc.appln_filing_year, wipc.inventor_num_per_country,
 wipc.person_ctry_code, wipc.total_inventor, wipc.country_share, wipc.ipc4,
@@ -124,8 +136,9 @@ where wipc.ipc4 = t902.ipc; -- 292.736
 
 \d tls902_ipc_nace2
 
--- summing up the country_share per country per year for each nace2
--- final table
+-- final table to be merged with WIOD content. the merging columns are
+-- country and nace2_code.
+-- In this SQL we are summing up the country_share for each country, year, nace2
 drop table wiod_pct_yearly_country_industry;
 select person_ctry_code, nace2_code, nace2_descr, nace2_weight, appln_filing_year,
 sum(country_share) as sum_of_country_share
