@@ -1,3 +1,63 @@
+## installing the WIODnet package from github
+library(devtools)
+install_github("altay-oz/WIODnet")
+
+library(WIODnet) ## developed by Ozaygen and Kim
+
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(magrittr)
+library(stargazer)
+library(plm)
+library(lmtest)
+library(texreg)
+
+??coeftest
+
+## getting wiod zip file and unzipping and obtaining yearly IO tables
+getWIOD()
+
+## making network calculations
+netWIOD()
+
+## getting the panel data with country-ind as unit analysis.
+panelWIOD()
+
+## getting the panel data with country as unit analysis.
+getCountryWIOD()
+
+## panel data are ready. 
+wiod.manuf.df <- read.csv("wiod_manuf_net_panel_2000_2014.csv")
+wiod.ctry.df <- read.csv("wiod_ctry_net_panel_2000_2014.csv")
+
+## merging patent data
+## reading the patent count data obtained from patstat
+patstat.df <- read.csv("./patstat_manuf/country_ind_yearly_pat_tech_sum.csv",
+                             stringsAsFactors = FALSE)
+
+## then join it
+wiod.pat.manuf <- left_join(wiod.manuf.df, patstat.df, 
+                  by = c("country.ind" = "country.ind", "year" = "appln_filing_year"))
+
+## changing all NAs in patent info (pat_tech_sum) into zeros.
+wiod.pat.manuf$pat_tech_sum[is.na(wiod.pat.manuf$pat_tech_sum)]  <- 0
+
+###### country data
+## country.ind to country and sum
+patstat.ctry.df  <- patstat.df %>% separate(country.ind, c("country", "ind"), 3) %>%
+    select(-ind) %>% group_by(country, appln_filing_year) %>%
+    summarise(pat_num = sum(pat_tech_sum))
+
+wiod.pat.ctry <- left_join(wiod.ctry.df, patstat.ctry.df, 
+                  by = c("country" = "country", "year" = "appln_filing_year"))
+
+## changing all NAs in patent info (pat_num) into zeros.
+wiod.pat.ctry$pat_num[is.na(wiod.pat.ctry$pat_num)]  <- 0
+
+################ ################ ################ ################ ################ 
+## starting the analysis.
+
 ## creating the output directories for figures and tables to be used in
 ## the article
 figures.dir <- "./figures"
@@ -6,16 +66,12 @@ tables.dir <- "./tables"
 dir.create(figures.dir)
 dir.create(tables.dir)
 
-## reading the csv file created from the data preparation phase.
-## old; wiod_yearly_net_scores_Z_VA
-wiod.data <- read.csv("wiod_manuf_net_VA_patent.csv")
-
 ## creating country and industry columns
-wiod.data %<>% mutate(country = str_sub(country.ind, 1, 3)) %>%
+wiod.pat.manuf %<>% mutate(country = str_sub(country.ind, 1, 3)) %>%
     mutate(industry = str_sub(country.ind, 5))
 
 ## filtering manufacturing industries
-wiod.manuf.data  <- wiod.data %>% filter(industry %in% c("Low Tech",
+wiod.manuf.data  <- wiod.pat.manuf %>% filter(industry %in% c("Low Tech",
                                                          "Medium-Low Tech",
                                                          "Medium-High Tech",
                                                          "High Tech"))
@@ -26,12 +82,12 @@ wiod.manuf.data$industry <- factor(wiod.manuf.data$industry)
 names(wiod.manuf.data)
 
 ## renaming all variabes in capital letters.
-names(wiod.manuf.data) <- c("country.ind", "year", "STRENGTH.ALL",
+names(wiod.manuf.data) <- c("country.ind", "STRENGTH.ALL",
                             "STRENGTH.OUT", "STRENGTH.IN",
                             "BETWEENNESS", "PAGE.RANK", "EIGEN.CENT",
                             "DOM.OUT", "INT.OUT", "DOM.IN", "INT.IN",
-                            "DOM.FINAL", "INT.FINAL", "VA", "INNOV.CAP",
-                            "country", "industry")
+                            "DOM.FINAL", "INT.FINAL", "VA", "year",
+                            "INNOV.CAP", "country", "industry")
 
 ## adding STRENGTH.EFFiciency variable
 wiod.manuf.data %<>% mutate(STRENGTH.EFF = STRENGTH.OUT / STRENGTH.IN) 
@@ -142,7 +198,7 @@ reg.table  <- function(lag.year) {
     screenreg(models.out, override.se = ses.out, override.pvalues = pvals.out)
 }
 
-## creating the list of lag years
+xo## creating the list of lag years
 list.lags <- c(1, 2, 3)
 
 ## runing all models for all lag years.
