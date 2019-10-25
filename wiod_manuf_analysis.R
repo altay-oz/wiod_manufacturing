@@ -1,8 +1,14 @@
+## This file is made for the reproducibility of the results obtained in
+## Kim, K., Özaygen, A. (2019) Analysis of the innovative capacity and
+## the network position of national manufacturing industries in world
+## production.
+
+
 ## installing the WIODnet package from github
 library(devtools)
 install_github("altay-oz/WIODnet")
 
-library(WIODnet) ## developed by Ozaygen and Kim
+library(WIODnet) ## developed by Ozaygen for this paper
 
 library(dplyr)
 library(tidyr)
@@ -12,8 +18,7 @@ library(stargazer)
 library(plm)
 library(lmtest)
 library(texreg)
-
-??coeftest
+library(Hmisc)
 
 ## getting wiod zip file and unzipping and obtaining yearly IO tables
 getWIOD()
