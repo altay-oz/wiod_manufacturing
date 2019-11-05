@@ -20,45 +20,76 @@ library(lmtest)
 library(texreg)
 library(Hmisc)
 
-## getting wiod zip file and unzipping and obtaining yearly IO tables
-getWIOD()
+## getting the panel data with various isic codes.
 
-## making network calculations
-netWIOD()
+## isic = 0, there is no aggregation regarding industries, using the
+## industry codes as they are provided in WIOD original data.
+panelWIOD(0)
 
-## getting the panel data with country-ind as unit analysis.
-panelWIOD()
+## isic = 1, the aggregation is made wrt ISIC single digit code.
+panelWIOD(1)
+
+## isic = 2, all industry codes are left as they are in the original
+## WIOD data except for the manufacturing industry which is aggregated
+## according to the Eurostat technology intensity classification of
+## manufacturing.
+panelWIOD(2)
 
 ## getting the panel data with country as unit analysis.
 getCountryWIOD()
 
 ## panel data are ready. 
-wiod.manuf.df <- read.csv("wiod_manuf_net_panel_2000_2014.csv")
+wiod.isic.0 <- read.csv("wiod_as_it_is_net_panel_2000_2014.csv")
+wiod.isic.1 <- read.csv("wiod_isic_1_net_panel_2000_2014.csv")
+wiod.isic.2 <- read.csv("wiod_manuf_net_panel_2000_2014.csv")
+
 wiod.ctry.df <- read.csv("wiod_ctry_net_panel_2000_2014.csv")
 
-## merging patent data
 ## reading the patent count data obtained from patstat
-patstat.df <- read.csv("./patstat_manuf/country_ind_yearly_pat_tech_sum.csv",
-                             stringsAsFactors = FALSE)
+patstat.isic.0 <- read.csv("./patstat_manuf/country_ind_yearly_pat_sum_isic_0.csv",
+                           stringsAsFactors = FALSE)
+patstat.isic.1 <- read.csv("./patstat_manuf/country_ind_yearly_pat_sum_isic_1.csv",
+                           stringsAsFactors = FALSE)
+patstat.isic.2 <- read.csv("./patstat_manuf/country_ind_yearly_pat_sum_isic_2.csv",
+                           stringsAsFactors = FALSE)
 
-## then join it
-wiod.pat.manuf <- left_join(wiod.manuf.df, patstat.df, 
+head(wiod.pat.isic.0)
+
+## merging patent data
+wiod.pat.isic.0 <- left_join(wiod.isic.0, patstat.isic.0, 
                   by = c("country.ind" = "country.ind", "year" = "appln_filing_year"))
 
-## changing all NAs in patent info (pat_tech_sum) into zeros.
-wiod.pat.manuf$pat_tech_sum[is.na(wiod.pat.manuf$pat_tech_sum)]  <- 0
+## changing all NAs in patent info (pat_num) into zeros.
+wiod.pat.isic.0$patent_num[is.na(wiod.pat.isic.0$patent_num)]  <- 0
+
+wiod.pat.isic.1 <- left_join(wiod.isic.1, patstat.isic.1, 
+                  by = c("country.ind" = "country.ind", "year" = "appln_filing_year"))
+wiod.pat.isic.1$patent_num[is.na(wiod.pat.isic.1$patent_num)]  <- 0
+
+wiod.pat.isic.2 <- left_join(wiod.isic.2, patstat.isic.2, 
+                  by = c("country.ind" = "country.ind", "year" = "appln_filing_year"))
+wiod.pat.isic.2$patent_num[is.na(wiod.pat.isic.2$patent_num)]  <- 0
 
 ###### country data
 ## country.ind to country and sum
-patstat.ctry.df  <- patstat.df %>% separate(country.ind, c("country", "ind"), 3) %>%
+patstat.ctry.df  <- patstat.isic.1 %>% separate(country.ind, c("country", "ind"), 3) %>%
     select(-ind) %>% group_by(country, appln_filing_year) %>%
-    summarise(pat_num = sum(pat_tech_sum))
+    summarise(pat_num = sum(patent_num))
 
 wiod.pat.ctry <- left_join(wiod.ctry.df, patstat.ctry.df, 
                   by = c("country" = "country", "year" = "appln_filing_year"))
 
 ## changing all NAs in patent info (pat_num) into zeros.
 wiod.pat.ctry$pat_num[is.na(wiod.pat.ctry$pat_num)]  <- 0
+
+################ ################ ################ ################ ################
+## write all as csv
+
+write.csv(wiod.pat.isic.0, "wiod_pat_isic_0.csv", row.names = FALSE)
+write.csv(wiod.pat.isic.1, "wiod_pat_isic_1.csv", row.names = FALSE)
+write.csv(wiod.pat.isic.2, "wiod_pat_isic_2.csv", row.names = FALSE)
+
+write.csv(wiod.pat.ctry, "wiod_pat_country.csv", row.names = FALSE)
 
 ################ ################ ################ ################ ################ 
 ## starting the analysis.
@@ -164,7 +195,7 @@ reg.model <- function(lag.year) {
 
 reg.output <- function(model) {
 
-    p.mod.out <- plm(formula = model, data = wiod.manuf.data,
+p    p.mod.out <- plm(formula = model, data = wiod.manuf.data,
                            index=c("country.ind", "year"), model="within")
 
     ct.simple <- coeftest(p.mod.out, vcovHC) # Heteroskedasticity consistent coef.
@@ -203,7 +234,7 @@ reg.table  <- function(lag.year) {
     screenreg(models.out, override.se = ses.out, override.pvalues = pvals.out)
 }
 
-xo## creating the list of lag years
+## creating the list of lag years
 list.lags <- c(1, 2, 3)
 
 ## runing all models for all lag years.
